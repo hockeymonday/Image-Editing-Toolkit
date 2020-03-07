@@ -1,0 +1,147 @@
+😀 World!        
+byte_list = list(text.encode('utf-8'))
+        #encoding does not proceed if its more than a 999999 bytes
+        if len(byte_list) > 999999:
+            return False
+
+        #Start and end values to encode
+        starter_bytes = [17,28,33,43,54,113]
+        end_bytes = [14,213,33]
+        x=0
+        y=6
+        z=6
+
+        #Makes sure image has enough pixels to encode full message
+        pixels_needed = len(starter_bytes) + len(end_bytes) + len(byte_list)
+        if len(current) <= pixels_needed:
+            return False
+
+        #This is a marker at begining indicating encoding from first 6 pixels
+        for byte in starter_bytes:
+            self._encode_pixel(x,byte)
+            x+=1
+
+        #This is a marker indicating the end of the message with end_byte values
+        for bite in end_bytes:
+            self._encode_pixel(len(byte_list)+y, bite)
+            y+=1
+
+        #This encodes the message
+        for bhyte in byte_list:
+            self._encode_pixel(z,bhyte)
+            z+=1
+
+        return True
+
+    def decode(self):
+        """
+        Returns the secret message (a string) stored in the current image.
+
+        The message should be decoded as a list of bytes. Assuming that a list
+        blist has only bytes (ints in 0.255), you can turn it into a string
+        using UTF-8 with the decode method:
+
+            text = bytes(blist).decode('utf-8')
+
+        If no message is detected, or if there is an error in decoding the
+        message, this method returns None
+        """
+        current = self.getCurrent()
+        start = []
+        start_compare = [17,28,33,43,54,113]
+        end_pos = 0
+        text_bytes = []
+
+        try:
+            #Look for intro indicator
+            for x in range(0,6):
+                num1 = self._decode_pixel(x)
+                start.append(num1)
+
+            assert start == start_compare,'start indicator not found'
+
+            #Look for end indicator, values are 14,213,33
+            for x in range(len(current)):
+                if (self._decode_pixel(x) == 14 and self._decode_pixel(x+1) == 213
+                    and self._decode_pixel(x+2) == 33):
+                    end_pos = x
+                    break
+
+            #Now we can decode the text
+            for x in range(6,end_pos):
+                num3 = self._decode_pixel(x)
+                text_bytes.append(num3)
+
+            message = bytes(text_bytes)
+            return message.decode('utf-8')
+
+        except:
+            return None
+
+    # HELPER METHODS
+    def _decode_pixel(self, pos):
+        """
+        Return: the number n hidden in pixel pos of the current image.
+
+        This function assumes that the value was a 3-digit number encoded as
+        the last digit in each color channel (e.g. red, green and blue).
+
+        Parameter pos: a pixel position
+        Precondition: pos is an int with  0 <= p < image length (as a 1d list)
+        """
+        current = self.getCurrent()
+
+        #Assert preconditions
+        assert type(pos) == int, 'pos must be an integer'
+        assert 0<= pos and pos<len(current),'range must be 0<= pos<image length'
+
+        rgb = current[pos]
+        red   = rgb[0]
+        green = rgb[1]
+        blue  = rgb[2]
+        return  (red % 10) * 100  +  (green % 10) * 10  +  blue % 10
+
+    def _encode_pixel(self, pos, byte):
+        """
+        Alters pixel at given position (row,col) to encode a 3 digit byte value
+        into the rgb values of the pixel.
+
+        This method takes the position of a pixel and encodes a given 3 digit
+        byte value in the last number of the red, green, and blue values of the
+        pixel of the given position.
+
+        Parameter pos: a pixel position
+        Precondition: pos is an int with  0 <= p < image length (as a 1d list)
+
+        Paramter byte: a byte value to encode in a pixel
+        Precondition: byte is an int with 0 <= byte <= 255
+        """
+        current = self.getCurrent()
+
+        #assert preconditions
+        assert type(pos) == int, 'pos must be an integer'
+        assert 0<= pos and pos<len(current),'range must be 0<= pos <image length'
+        assert type(byte) == int,'byte must be an int'
+        assert 0<=byte and byte<=255,'byte must be between 0 and 255 (inclusive)'
+
+        rgb = current[pos]
+        new_rgb = list(rgb)
+        byte = str(byte)
+        if len(byte) == 2:
+            byte = '0' + byte
+        elif len(byte) == 1:
+            byte = '00' + byte
+
+        #Changes the last digit of each rgb value of given pixel
+        for x in range(0,len(byte)):
+            color = str(rgb[x])
+            color = color[:-1]   #cut off last digit
+            color = color+byte[x]
+            color = int(color)
+            if color > 255:
+                color = color - 10
+            new_rgb[x] = color
+
+        #Sets the pixel to the encrypted rgb values
+        new_rgb = tuple(new_rgb)
+        current[pos] = new_rgb
